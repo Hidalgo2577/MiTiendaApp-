@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "757795949907",
+    "project_id": "mi-tienda-app-12106",
+    "storage_bucket": "mi-tienda-app-12106.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:757795949907:android:3435d1635589fc90ef65a6",
+        "android_client_info": {
+          "package_name": "Mi.Tienda.App"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCv2WTta1ksiiFupb5f3ebzsOJa_aIv1qI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

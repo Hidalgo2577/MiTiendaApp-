@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="main-title">Gestor de Tienda (TPV/eCommerce)</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        /* Estilo para la fuente Inter (Asume que está disponible) */
+        html {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .tab-button {
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* Estilo para el modal */
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            animation: fadeInScale 0.2s ease-out;
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+    </style>
+
+    <script type="module">
+        // Importaciones de Firebase (URLs CDN para desarrollo online)
+        // NOTA: Si usas archivos locales, reemplaza las rutas por "./js/firebase-app.js", etc.
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- VARIABLES GLOBALES DE ESTADO ---
+        let app = null;
+        let db = null;
+        let auth = null;
+        let userId = null;
+        let isAuthReady = false;
+        let storeName = 'Mi Tienda Online/Física';
+        let products = [];
+        let sales = [];
+        let activeTab = 'dashboard';
+        let messageTimeout = null;
+
+        // Datos del Creador
+        const CREATOR_NAME = "Carlos Eduardo Hidalgo Mejias";
+        const CREATOR_CONTACT = "04129970656";
+
+        // Datos Simulados para Gráficos
+        const chartData = [{
+            name: 'Ene',
+            Ventas: 4000,
+            Perdidas: 2400
+        }, {
+            name: 'Feb',
+            Ventas: 3000,
+            Perdidas: 1398
+        }, {
+            name: 'Mar',
+            Ventas: 2000,
+            Perdidas: 9800
+        }, {
+            name: 'Abr',
+            Ventas: 2780,
+            Perdidas: 3908
+        }, {
+            name: 'May',
+            Ventas: 1890,
+            Perdidas: 4800
+        }, ];
+
+        // --- UTILIDADES DE UI (Ventanas/Mensajes/Modal) ---
+        
+        /** Muestra un mensaje temporal en la cabecera. */
+        const showMessage = (msg, isError = false) => {
+            const msgEl = document.getElementById('notification-message');
+            msgEl.textContent = msg;
+            msgEl.classList.remove('hidden', 'bg-red-500', 'bg-green-500', 'animate-pulse');
+            msgEl.classList.add(isError ? 'bg-red-500' : 'bg-green-500', 'animate-pulse');
+
+            clearTimeout(messageTimeout);
+            messageTimeout = setTimeout(() => {
+                msgEl.classList.add('hidden');
+                msgEl.classList.remove('animate-pulse', 'bg-red-500', 'bg-green-500');
+                msgEl.textContent = '';
+            }, 5000);
+        };
+
+        /** Renderiza un modal genérico. */
+        const renderModal = (title, contentHTML) => {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-body').innerHTML = contentHTML;
+            document.getElementById('modal').classList.remove('hidden');
+        };
+
+        /** Cierra el modal. */
+        window.closeModal = () => {
+            document.getElementById('modal').classList.add('hidden');
+        };
+        
+        /** Simulación de confirmación (Usando window.confirm) */
+        const confirmDeletion = () => {
+             return window.confirm("¿Estás seguro de que quieres eliminar este producto? Esta acción no se puede deshacer.");
+        };
+
+        // --- FIREBASE CORE & AUTH ---
+        
+        /** Obtiene la configuración de Firebase de localStorage. */
+        const getFirebaseConfig = () => {
+            const config = localStorage.getItem('firebaseConfig');
+            if (config) {
+                try {
+                    const parsedConfig = JSON.parse(config);
+                    if (parsedConfig && parsedConfig.projectId) {
+                        return parsedConfig;
+                    }
+                } catch (e) {
+                    console.error("Error al parsear firebaseConfig de localStorage:", e);
+                    localStorage.removeItem('firebaseConfig');
+                    return null;
+                }
+            }
+            return null;
+        };
+
+        /** Guarda la configuración de Firebase en localStorage. */
+        const saveFirebaseConfig = (config) => {
+            localStorage.setItem('firebaseConfig', JSON.stringify(config));
+        };
+        
+        /** Obtiene la referencia de la colección o documento para el usuario actual. */
+        const getDocRef = (collectionName, docId = null) => {
+            if (!db || !userId) {
+                console.error("Firestore no está inicializado o el userId no está disponible.");
+                return null;
+            }
+            // Usa el userId para crear rutas específicas para cada usuario
+            const path = `users/${userId}/${collectionName}`;
+            return docId ? doc(db, path, docId) : collection(db, path);
+        };
+
+        /** Inicializa Firebase y maneja la autenticación. */
+        window.initApp = async () => {
+            const firebaseConfig = getFirebaseConfig();
+
+            if (!firebaseConfig) {
+                console.warn("Configuración de Firebase faltante. Mostrando vista de configuración.");
+                setActiveView('settings');
+                return;
+            }
+
+            try {
+                // Inicialización de la App
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Manejo de Autenticación
+                const authenticate = async () => {
+                    try {
+                        await signInAnonymously(auth);
+                    } catch (error) {
+                        console.error("Error durante el inicio de sesión anónimo:", error);
+                        showMessage("Error de autenticación. Revisa tu configuración de Firebase.", true);
+                    }
+                };
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        isAuthReady = true;
+                        console.log("Firebase inicializado y usuario autenticado:", userId);
+                        setupListeners();
+                        renderContent(); // Mantiene la vista de la pestaña activa después de autenticar
+                    } else {
+                        if (!isAuthReady) {
+                            authenticate();
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error("Error al inicializar Firebase:", error);
+                // Si la inicialización falla, muestra un mensaje de error y fuerza la vista de configuración
+                document.getElementById('content-area').innerHTML = `
+                    <div class="p-8 text-center bg-red-100 rounded-xl shadow-lg">
+                        <p class="text-xl font-bold text-red-600 mb-4">¡Error de Conexión!</p>
+                        <p class="text-red-800">No se pudo inicializar Firebase. Probablemente las claves son incorrectas.</p>
+                        <button onclick="setActiveView('settings')" class="mt-4 bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition duration-200">Revisar Configuración</button>
+                    </div>
+                `;
+            }
+        };
+
+        // --- FIREBASE LISTENERS Y DATA FETCHING ---
+
+        /** Configura los listeners de onSnapshot para datos en tiempo real. */
+        const setupListeners = () => {
+            if (!db || !userId) return;
+
+            // 1. Listener para Configuración (Nombre de la Tienda)
+            const configRef = getDocRef('config', 'store_config');
+            onSnapshot(configRef, (docSnap) => {
+                if (docSnap.exists() && docSnap.data().name) {
+                    storeName = docSnap.data().name;
+                } else {
+                    // Inicializa el nombre si no existe
+                    setDoc(configRef, { name: storeName }, { merge: true });
+                }
+                renderHeader();
+            }, (error) => {
+                console.error("Error al obtener config:", error);
+            });
+
+            // 2. Listener para Productos
+            const productsQuery = query(getDocRef('products'));
+            onSnapshot(productsQuery, (snapshot) => {
+                products = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                // Solo renderiza si la pestaña activa lo requiere
+                if (activeTab === 'products' || activeTab === 'dashboard') {
+                    renderContent();
+                }
+            }, (error) => {
+                console.error("Error al obtener productos:", error);
+            });
+            
+            // 3. Listener para Ventas
+            const salesQuery = query(getDocRef('sales'));
+            onSnapshot(salesQuery, (snapshot) => {
+                sales = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                // Solo renderiza si la pestaña activa lo requiere
+                if (activeTab === 'dashboard' || activeTab === 'clients') {
+                    renderContent();
+                }
+            }, (error) => {
+                console.error("Error al obtener ventas:", error);
+            });
+        };
+
+        // --- FUNCIONES CRUD (CRUD functions were not included in the snippet but are necessary) ---
+        // (Las funciones CRUD como saveStoreName, addProduct, updateProduct, deleteProduct, recordSale deben ir aquí)
+
+        // ... El resto del código JS (renderHeader, renderDashboard, renderProducts, etc.) sigue sin cambios ...
+        
+        // --- COMPONENTES DE VISTA (Rendering) ---
+
+        const renderHeader = () => {
+            document.getElementById('store-name-title').textContent = storeName;
+            document.getElementById('main-title').textContent = `${storeName} | Gestor TPV`;
+            document.getElementById('creator-name-footer').textContent = `Desarrollado por: ${CREATOR_NAME}`;
+            document.getElementById('creator-contact-footer').href = `tel:+${CREATOR_CONTACT}`;
+            document.getElementById('creator-contact-footer').textContent = CREATOR_CONTACT;
+        };
+        
+        // **********************************************
+        // NOTA: EL RESTO DE LAS FUNCIONES DE RENDERIZADO 
+        //       (renderDashboard, renderProducts, renderClients, renderSettings, etc.)
+        //       y las funciones CRUD (addProduct, deleteProduct, etc.)
+        //       deben pegarse aquí para que el código sea completo.
+        // **********************************************
+
+        window.setActiveView = (tabName) => {
+            activeTab = tabName;
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                if (btn.dataset.tab === tabName) {
+                    btn.classList.add('border-indigo-500', 'text-indigo-600');
+                    btn.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                } else {
+                    btn.classList.remove('border-indigo-500', 'text-indigo-600');
+                    btn.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                }
+            });
+            renderContent();
+        };
+
+        const renderContent = () => {
+            const isConfigPresent = !!getFirebaseConfig();
+
+            if (!isConfigPresent && activeTab !== 'settings') {
+                 setActiveView('settings');
+                 showMessage('⚠️ Necesitas configurar tu Base de Datos de Firebase.', true);
+                 return;
+            }
+            
+            // Este bloque debe ser llenado con el resto de tu código de renderizado (switch case)
+            if (isAuthReady) {
+                // Aquí va el switch (caso: 'dashboard', 'products', etc.)
+                // Ejemplo:
+                // switch (activeTab) {
+                //     case 'products':
+                //         renderProducts();
+                //         break;
+                //     // ... otros casos
+                // }
+            } else if (activeTab === 'settings') {
+                 // Si la configuración está abierta, la renderiza aunque no esté autenticado
+                 // renderSettings(); 
+            }
+            else {
+                 // Muestra el spinner si la autenticación aún no está lista
+                 document.getElementById('content-area').innerHTML = `
+                    <div class="text-center py-20 text-indigo-600">
+                        <svg class="animate-spin h-8 w-8 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="mt-4 text-lg">Conectando a Firebase y cargando tus datos...</p>
+                        <p class="text-sm text-gray-500">Asegúrate de tener conexión a internet.</p>
+                    </div>
+                 `;
+            }
+        };
+
+        window.onload = () => {
+            renderHeader();
+            setActiveView(activeTab); // Inicia el renderizado de la pestaña por defecto/configuración
+            initApp();
+        };
+    </script>
+</head>
+
+<body class="bg-gray-100 min-h-screen">
+    
+    <div id="modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="modal-overlay absolute inset-0"></div>
+        <div class="modal-content bg-white w-full max-w-lg p-6 rounded-xl shadow-2xl relative z-10">
+            <div class="flex justify-between items-start border-b pb-3 mb-4">
+                <h3 id="modal-title" class="text-xl font-bold text-gray-900"></h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">&times;</button>
+            </div>
+            <div id="modal-body">
+                </div>
+        </div>
+    </div>
+
+    <div id="notification-message" class="hidden fixed top-0 left-0 right-0 z-40 text-center text-white py-3 font-semibold shadow-lg">
+        </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <header class="bg-white shadow-md rounded-xl mb-6 p-4">
+            <div class="flex items-center justify-between flex-wrap">
+                <div class="flex-shrink-0">
+                    <h1 class="text-3xl font-extrabold text-indigo-600" id="store-name-title">Mi Tienda Online/Física</h1>
+                    <p class="text-sm text-gray-500">Gestor de Punto de Venta (TPV) / eCommerce</p>
+                </div>
+            </div>
+
+            <nav class="mt-4 border-b border-gray-200">
+                <div class="-mb-px flex space-x-8" aria-label="Tabs">
+                    <button onclick="setActiveView('dashboard')" data-tab="dashboard" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">
+                        Dashboard
+                    </button>
+                    <button onclick="setActiveView('products')" data-tab="products" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">
+                        Inventario/Productos
+                    </button>
+                    <button onclick="setActiveView('clients')" data-tab="clients" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">
+                        Historial de Ventas
+                    </button>
+                    <button onclick="setActiveView('settings')" data-tab="settings" class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">
+                        Configuración
+                    </button>
+                </div>
+            </nav>
+        </header>
+
+        <main id="app-container" class="mt-6">
+            <div id="content-area" class="bg-white p-6 rounded-xl shadow-lg">
+                <p class="text-center text-gray-500">Cargando interfaz...</p>
+            </div>
+        </main>
+
+        <footer class="mt-8 text-center text-gray-500 text-xs">
+            <p id="creator-name-footer">Desarrollado por: Carlos Eduardo Hidalgo Mejias</p>
+            <p>Contacto: <a id="creator-contact-footer" href="tel:+04129970656" class="text-indigo-600 hover:text-indigo-800">04129970656</a></p>
+            <p class="mt-2">Datos alojados de forma segura en Google Firebase (Firestore).</p>
+        </footer>
+
+    </div>
+
+</body>
+
+</html>
