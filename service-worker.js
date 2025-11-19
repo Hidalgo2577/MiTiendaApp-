@@ -7,13 +7,11 @@ const CACHE_NAME = 'tienda-online-v1';
 const urlsToCache = [
   './',             // La raíz, que carga index.html
   'index.html',
-  // Archivos estáticos de tu proyecto
-  'ccs/style.css',  // AJUSTADO: Asumiendo que tu archivo CSS está en ccs/style.css
+  // Archivo estático de tu proyecto
   'logo.jpg',
-  // Puedes añadir otros archivos JS/CSS si los tienes en las carpetas js/ y ccs/
-  // 'js/tu-archivo-principal.js', 
-  // 'ccs/otro-estilo.css'
+  // NOTA: Se eliminó 'ccs/style.css'
 ];
+
 // **********************************************
 
 
@@ -23,7 +21,8 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        return cache.addAll(urlsToCache);
+        // El fallo en 'cache.addAll' causaba el problema de instalación
+        return cache.addAll(urlsToCache); 
       })
       .then(() => self.skipWaiting()) // Fuerza la activación inmediata
   );
@@ -45,7 +44,6 @@ self.addEventListener('fetch', event => {
         // Si no hay respuesta, va a la red.
         return fetch(event.request).catch(error => {
           // Si la red falla y no está en caché, la página mostrará un error.
-          // Para un manejo más amigable, aquí se podría devolver una 'offline.html'
           console.error('Fetch fallido o sin conexión:', error);
         });
       })
@@ -62,10 +60,11 @@ self.addEventListener('activate', event => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheWhitelist.indexOf(cacheName) === -1) {
-            return caches.delete(cacheName);
+            return caches.delete(cacheName); // Elimina cachés obsoletas
           }
         })
       );
     })
+    .then(() => self.clients.claim()) // Permite que el SW tome control inmediatamente
   );
 });

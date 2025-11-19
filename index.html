@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
     
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="manifest.json">
     
     <meta name="theme-color" content="#4c51bf"/> 
     
@@ -928,10 +928,11 @@
         window.onload = () => {
             // Se eliminó la lógica de callback de Drive
             
-            // PWA MODIFICACIÓN 3: Registro del Service Worker
+            // PWA MODIFICACIÓN 3: Registro del Service Worker (CORRECCIÓN DE RUTA)
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('/service-worker.js').then(function(registration) {
+                    // CAMBIO DE RUTA: './service-worker.js' o 'service-worker.js' para ruta relativa
+                    navigator.serviceWorker.register('service-worker.js').then(function(registration) {
                         console.log('Service Worker registrado con éxito:', registration.scope);
                     }, function(err) {
                         console.log('Fallo el registro de Service Worker:', err);
