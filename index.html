@@ -71,7 +71,7 @@
         
         <header class="flex flex-col sm:flex-row justify-between items-center bg-white p-6 rounded-xl shadow-lg mb-6">
             <div class="flex items-center w-full sm:w-auto mb-4 sm:mb-0">
-                <img src="logo.png" alt="Logo de la Tienda" class="h-10 w-10 mr-4 object-contain">
+                <img src="logo.jpg" alt="Logo de la Tienda" class="h-10 w-10 mr-4 object-contain">
                 <div>
                     <h1 class="text-3xl font-extrabold text-indigo-800" id="store-name-title">Mi Tienda Online</h1>
                     <p class="text-sm text-gray-500">Gestor de Ventas (TPV) / eCommerce</p>
@@ -931,8 +931,9 @@
             // PWA MODIFICACIÓN 3: Registro del Service Worker (CORRECCIÓN DE RUTA)
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
-                    // CAMBIO DE RUTA: './service-worker.js' o 'service-worker.js' para ruta relativa
-                    navigator.serviceWorker.register('service-worker.js').then(function(registration) {
+                    // ** LÍNEA CRÍTICA CORREGIDA **
+                    // Usamos la ruta absoluta para el subdirectorio de GitHub Pages
+                    navigator.serviceWorker.register('/sistema-gestion-ventas/service-worker.js').then(function(registration) { 
                         console.log('Service Worker registrado con éxito:', registration.scope);
                     }, function(err) {
                         console.log('Fallo el registro de Service Worker:', err);
