@@ -3,6 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    
+    <link rel="manifest" href="manifest.json">
+    
+    <meta name="theme-color" content="#4c51bf"/> 
+    
     <title id="main-title">Mi Tienda Online | Gestor TPV</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -28,6 +33,23 @@
             .dashboard-grid {
                 grid-template-columns: 1fr; /* Una columna en lugar de 4 o 2 en móviles */
             }
+        }
+        /* Estilo para radios para Tailwind CSS v3/4 */
+        .form-radio {
+            appearance: none;
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            border: 1px solid #d1d5db; /* gray-300 */
+            vertical-align: middle;
+            margin-right: 0.5rem;
+            cursor: pointer;
+        }
+        .form-radio:checked {
+            background-color: #4c51bf; /* indigo-600 */
+            border-color: #4c51bf;
+            box-shadow: 0 0 0 2px #fff, 0 0 0 4px #4c51bf;
         }
     </style>
 </head>
@@ -790,14 +812,20 @@
             }
         };
 
+        // **********************************************
+        // ******* MODIFICACIÓN: Nueva lógica de guardar moneda con Radio Buttons *******
+        // **********************************************
         window.saveCurrency = () => {
-            const newSymbol = document.getElementById('currency-symbol-input').value.trim().toUpperCase();
-            if (newSymbol) {
+            const selectedCurrency = document.querySelector('input[name="currency"]:checked');
+            if (selectedCurrency) {
+                const newSymbol = selectedCurrency.value.trim().toUpperCase();
                 currencySymbol = newSymbol;
                 localStorage.setItem('currencySymbol', currencySymbol);
                 showMessage(`Símbolo de moneda actualizado a ${currencySymbol}.`);
                 document.getElementById('current-currency-symbol').textContent = currencySymbol;
                 renderContent(); // Forzar renderizado para actualizar precios
+            } else {
+                 showMessage("Por favor, selecciona un símbolo de moneda (USD, VES o EUR).", true);
             }
         };
 
@@ -808,22 +836,32 @@
                 <div class="mb-8 p-4 border rounded-lg bg-gray-50">
                     <h3 class="text-xl font-semibold mb-3">Nombre de la Tienda</h3>
                     <p class="text-gray-600 mb-2">Actual: <span id="current-store-name" class="font-bold">${storeName}</span></p>
-                    <div class="flex space-x-2">
-                        <input type="text" id="store-name-input" value="${storeName}" class="flex-grow p-2 border rounded-md" placeholder="Nuevo nombre de la tienda">
-                        <button onclick="window.saveStoreName()" class="bg-indigo-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-600">Guardar</button>
-                    </div>
+                    <input type="text" id="store-name-input" value="${storeName}" class="w-full p-2 border rounded-md mb-3" placeholder="Nuevo nombre de la tienda">
+                    <button onclick="window.saveStoreName()" class="w-full bg-indigo-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-600">Guardar Nombre</button>
                 </div>
                 
                 <div class="mb-8 p-4 border rounded-lg bg-indigo-50">
                     <h3 class="text-xl font-semibold mb-3">Moneda</h3>
-                    <p class="text-gray-600 mb-2">Símbolo actual: <span id="current-currency-symbol" class="font-bold">${currencySymbol}</span> (ej. USD, VES, EUR)</p>
-                    <div class="flex space-x-2">
-                        <input type="text" id="currency-symbol-input" value="${currencySymbol}" class="p-2 border rounded-md" placeholder="Nuevo Símbolo (ej. USD)" maxlength="5">
-                        <button onclick="window.saveCurrency()" class="bg-indigo-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-600">Guardar Moneda</button>
+                    <p class="text-gray-600 mb-4">Símbolo actual: <span id="current-currency-symbol" class="font-bold">${currencySymbol}</span></p>
+
+                    <div id="currency-options" class="flex flex-wrap gap-4 mb-4">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="currency" value="USD" ${currencySymbol === 'USD' ? 'checked' : ''} class="form-radio text-indigo-600">
+                            <span class="ml-2">Dólar (USD)</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="currency" value="VES" ${currencySymbol === 'VES' ? 'checked' : ''} class="form-radio text-indigo-600">
+                            <span class="ml-2">Bolívar (VES)</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="currency" value="EUR" ${currencySymbol === 'EUR' ? 'checked' : ''} class="form-radio text-indigo-600">
+                            <span class="ml-2">Euro (EUR)</span>
+                        </label>
                     </div>
+
+                    <button onclick="window.saveCurrency()" class="w-full bg-indigo-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-600">Guardar Moneda</button>
                 </div>
             `;
-            // Se eliminó la configuración de Google Drive
         };
 
         const renderDrive = () => {
@@ -889,6 +927,19 @@
         // **********************************************
         window.onload = () => {
             // Se eliminó la lógica de callback de Drive
+            
+            // PWA MODIFICACIÓN 3: Registro del Service Worker (CORRECCIÓN DE RUTA)
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                    // CAMBIO DE RUTA: './service-worker.js' o 'service-worker.js' para ruta relativa
+                    navigator.serviceWorker.register('service-worker.js').then(function(registration) {
+                        console.log('Service Worker registrado con éxito:', registration.scope);
+                    }, function(err) {
+                        console.log('Fallo el registro de Service Worker:', err);
+                    });
+                });
+            }
+            // FIN DE MODIFICACIÓN 3
             
             document.getElementById('store-name-title').textContent = storeName;
             initApp();
