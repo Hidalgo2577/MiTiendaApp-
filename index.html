@@ -795,7 +795,11 @@
                                 </div>
                                 <div class="mb-4">
                                     <label for="setting-currency-symbol" class="block text-sm font-medium text-gray-700">Símbolo de Moneda</label>
-                                    <input id="setting-currency-symbol" type="text" value="${currencySymbol}" class="mt-1 block w-full p-2 border rounded-md shadow-sm">
+                                    <select id="setting-currency-symbol" class="mt-1 block w-full p-2 border rounded-md shadow-sm">
+                                        <option value="USD" ${currencySymbol === 'USD' ? 'selected' : ''}>USD - Dólar Estadounidense</option>
+                                        <option value="EUROS" ${currencySymbol === 'EUROS' ? 'selected' : ''}>EUROS - Euro</option>
+                                        <option value="VES" ${currencySymbol === 'VES' ? 'selected' : ''}>VES - Bolívar Soberano</option>
+                                    </select>
                                 </div>
                                 <button onclick="window.saveSettings()" class="bg-indigo-600 text-white p-2 rounded hover:bg-indigo-700 transition">Guardar Configuración</button>
                             </div>
