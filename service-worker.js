@@ -1,15 +1,16 @@
-// Nombre de la caché. Versión 1 de la PWA.
-const CACHE_NAME = 'tienda-online-v1';
+// Nombre de la caché. Versión 2 de la PWA.
+const CACHE_NAME = 'tienda-online-v2'; // <--- ¡INCREMENTADO!
 
 // **********************************************
 // * RUTAS AJUSTADAS A TU PROYECTO *
 // **********************************************
 const urlsToCache = [
-  './',             // La raíz, que carga index.html
+  '/',             // La raíz del ámbito, que carga index.html
   'index.html',
+  'manifest.json',      // <--- ¡AÑADIDO! (Crítico)
+  'service-worker.js',  // <--- ¡AÑADIDO! (Crítico)
   // Archivo estático de tu proyecto
   'logo.jpg',
-  // NOTA: Se eliminó 'ccs/style.css'
 ];
 
 // **********************************************
@@ -21,7 +22,7 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        // El fallo en 'cache.addAll' causaba el problema de instalación
+        // Aseguramos que la lista incluye los archivos PWA
         return cache.addAll(urlsToCache); 
       })
       .then(() => self.skipWaiting()) // Fuerza la activación inmediata
@@ -30,20 +31,15 @@ self.addEventListener('install', event => {
 
 /*
  * 2. Evento 'fetch': Estrategia 'Cache-First'
- * Intenta obtener el recurso de la caché; si no está, va a la red.
  */
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // Si hay una respuesta en caché, la devuelve.
         if (response) {
           return response;
         }
-
-        // Si no hay respuesta, va a la red.
         return fetch(event.request).catch(error => {
-          // Si la red falla y no está en caché, la página mostrará un error.
           console.error('Fetch fallido o sin conexión:', error);
         });
       })
@@ -65,6 +61,5 @@ self.addEventListener('activate', event => {
         })
       );
     })
-    .then(() => self.clients.claim()) // Permite que el SW tome control inmediatamente
   );
 });
