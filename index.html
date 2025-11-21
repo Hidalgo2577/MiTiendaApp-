@@ -237,10 +237,33 @@
                 localStorage.setItem('localSales', JSON.stringify(sales));
             }
         };
-
+        
+        // FIX CRÍTICO: Usar códigos ISO estándar para el formato de moneda.
         const formatCurrency = (amount) => {
-            // Usa la configuración regional de Estados Unidos (en-US) para USD
-            return new Intl.NumberFormat('en-US', { style: 'currency', currency: currencySymbol, minimumFractionDigits: 2 }).format(amount);
+            const code = currencySymbol; // 'USD', 'EUR', 'VES'
+            
+            if (code === 'EUR') {
+                // Formato para Euro
+                return new Intl.NumberFormat('es-ES', { 
+                    style: 'currency', 
+                    currency: 'EUR', 
+                    minimumFractionDigits: 2 
+                }).format(amount);
+            } 
+            
+            if (code === 'VES') {
+                // Formato para Bolívar Soberano (Bs.) - Ajustado para Venezuela
+                 return `Bs. ${new Intl.NumberFormat('es-VE', { 
+                    minimumFractionDigits: 2 
+                }).format(amount)}`; 
+            }
+
+            // Por defecto USD o cualquier otro código
+            return new Intl.NumberFormat('en-US', { 
+                style: 'currency', 
+                currency: code, 
+                minimumFractionDigits: 2 
+            }).format(amount);
         };
 
         // **********************************************
@@ -776,26 +799,54 @@
                     `;
                     break;
                 case 'settings':
+                    // **INICIO: Sección de Configuración Reestructurada para coincidir con la imagen**
                     contentArea.innerHTML = `
                         <h2 class="text-2xl font-bold text-gray-800 mb-6">⚙️ Configuración de la Tienda</h2>
                         <div class="space-y-6">
-                            <div class="bg-gray-50 p-6 rounded-lg shadow-inner">
-                                <h3 class="text-xl font-semibold mb-4">Información General</h3>
-                                <div class="mb-4">
-                                    <label for="setting-store-name" class="block text-sm font-medium text-gray-700">Nombre de la Tienda</label>
+                            
+                            <div class="bg-white p-6 rounded-lg shadow-xl">
+                                <h3 class="text-xl font-bold mb-4 text-gray-900">Nombre de la Tienda</h3>
+                                <p class="text-sm text-gray-600 mb-4">Actual: <span class="font-semibold text-indigo-600">${storeName}</span></p>
+
+                                <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-200 mb-6">
+                                    <p class="font-bold text-indigo-800">**Ejemplo de Guía:** Introduce "Mi Café Express" o "Electro Market".</p>
+                                </div>
+
+                                <form onsubmit="event.preventDefault(); window.saveStoreNameSetting();" class="space-y-4">
                                     <input id="setting-store-name" type="text" value="${storeName}" class="mt-1 block w-full p-2 border rounded-md shadow-sm">
-                                </div>
-                                <div class="mb-4">
-                                    <label for="setting-currency-symbol" class="block text-sm font-medium text-gray-700">Símbolo de Moneda</label>
-                                    <select id="setting-currency-symbol" class="mt-1 block w-full p-2 border rounded-md shadow-sm">
-                                        <option value="USD" ${currencySymbol === 'USD' ? 'selected' : ''}>USD - Dólar Estadounidense</option>
-                                        <option value="EUROS" ${currencySymbol === 'EUROS' ? 'selected' : ''}>EUROS - Euro</option>
-                                        <option value="VES" ${currencySymbol === 'VES' ? 'selected' : ''}>VES - Bolívar Soberano</option>
-                                    </select>
-                                </div>
-                                <button onclick="window.saveSettings()" class="bg-indigo-600 text-white p-2 rounded hover:bg-indigo-700 transition">Guardar Configuración</button>
+                                    <button type="submit" class="w-full bg-indigo-600 text-white p-3 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                                        Guardar
+                                    </button>
+                                </form>
                             </div>
 
+                            <div class="bg-white p-6 rounded-lg shadow-xl">
+                                <h3 class="text-xl font-bold mb-4 text-gray-900">Moneda</h3>
+                                <p class="text-sm text-gray-600 mb-4">Símbolo actual: <span class="font-semibold text-indigo-600">${currencySymbol}</span></p>
+
+                                <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-200 mb-6">
+                                    <p class="font-bold text-indigo-800">**Ejemplo de Guía:** Selecciona la moneda principal que deseas utilizar.</p>
+                                </div>
+
+                                <form id="currency-form" onsubmit="event.preventDefault(); window.saveCurrencySetting();" class="space-y-4">
+                                    <div class="flex items-center">
+                                        <input type="radio" id="usd-radio" name="currency-radio" value="USD" class="form-radio text-indigo-600" ${currencySymbol === 'USD' ? 'checked' : ''}>
+                                        <label for="usd-radio" class="ml-3 text-base font-medium text-gray-700">Dólar Americano (USD)</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="eur-radio" name="currency-radio" value="EUR" class="form-radio text-indigo-600" ${currencySymbol === 'EUR' ? 'checked' : ''}>
+                                        <label for="eur-radio" class="ml-3 text-base font-medium text-gray-700">Euro (€)</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="radio" id="ves-radio" name="currency-radio" value="VES" class="form-radio text-indigo-600" ${currencySymbol === 'VES' ? 'checked' : ''}>
+                                        <label for="ves-radio" class="ml-3 text-base font-medium text-gray-700">Bolívar Venezolano (VES)</label>
+                                    </div>
+
+                                    <button type="submit" class="mt-4 w-full bg-indigo-600 text-white p-3 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                                        Guardar Moneda Seleccionada
+                                    </button>
+                                </form>
+                            </div>
                             <div class="bg-gray-50 p-6 rounded-lg shadow-inner">
                                 <h3 class="text-xl font-semibold mb-4">Opciones de Aplicación Híbrida (PWA)</h3>
                                 <p class="text-gray-700">Esta aplicación está diseñada para funcionar sin conexión.</p>
@@ -813,26 +864,41 @@
 
                         </div>
                     `;
+                    // **FIN: Sección de Configuración Reestructurada para coincidir con la imagen**
                     break;
                 default:
                     contentArea.innerHTML = '<p class="text-center py-10 text-gray-500">Vista no encontrada.</p>';
             }
         };
 
-        window.saveSettings = () => {
+        // **NUEVA FUNCIÓN: Guarda solo el nombre de la tienda**
+        window.saveStoreNameSetting = () => {
             const newStoreName = document.getElementById('setting-store-name').value;
-            const newCurrencySymbol = document.getElementById('setting-currency-symbol').value;
-
             localStorage.setItem('localStoreName', newStoreName);
-            localStorage.setItem('currencySymbol', newCurrencySymbol);
             
-            // Recargar la app para aplicar cambios
             storeName = newStoreName;
-            currencySymbol = newCurrencySymbol;
             renderHeader();
-            showMessage("Configuración guardada. Recargando vista...");
+            showMessage("Nombre de la tienda guardado. Recargando vista...");
             setActiveView('settings'); 
         };
+        
+        // **NUEVA FUNCIÓN: Guarda solo la moneda**
+        window.saveCurrencySetting = () => {
+            const selectedRadio = document.querySelector('input[name="currency-radio"]:checked');
+            if (selectedRadio) {
+                const newCurrencySymbol = selectedRadio.value;
+                localStorage.setItem('currencySymbol', newCurrencySymbol);
+                
+                currencySymbol = newCurrencySymbol;
+                renderHeader(); // Para actualizar el símbolo en el dashboard/otros
+                showMessage("Moneda guardada. Recargando vista...");
+                setActiveView('settings'); 
+            } else {
+                showMessage("Por favor, selecciona una moneda.", true);
+            }
+        };
+
+        // **FUNCIÓN ANTERIOR REMOVIDA O REEMPLAZADA: window.saveSettings() ha sido eliminado/reemplazado**
         
         window.clearAllData = () => {
             if (window.confirm("CONFIRMACIÓN FINAL: ¿Estás ABSOLUTAMENTE seguro de borrar TODOS los datos (Inventario y Ventas)? Esta acción es irreversible.")) {
@@ -879,7 +945,10 @@
                     }
                     // Limpia la variable después de usarla
                     deferredPrompt = null;
-                    document.getElementById('install-button').classList.add('hidden');
+                    const installButton = document.getElementById('install-button');
+                    if (installButton) {
+                         installButton.classList.add('hidden');
+                    }
                 });
             } else {
                  showMessage('La aplicación ya está instalada o la opción no está disponible.', true);
@@ -893,6 +962,11 @@
                     .then(registration => {
                         console.log('Service Worker registrado con éxito:', registration);
                         showMessage("PWA: El modo sin conexión está disponible.", false);
+                        
+                        // Si hay un Service Worker activo, verifica si hay actualizaciones pendientes
+                        if (registration.waiting) {
+                             showMessage("¡Actualización de la App disponible! Recarga para aplicarla.", false);
+                        }
                     })
                     .catch(error => {
                         console.error('Fallo en el registro del Service Worker:', error);
