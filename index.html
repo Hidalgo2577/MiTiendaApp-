@@ -346,7 +346,10 @@
 
             showMessage(`Venta registrada: ${quantity} x ${product.name} por ${formatCurrency(totalSale)}.`, false);
             document.getElementById('sale-form').reset();
-            renderSales(); 
+            // Si está en historial, actualiza la vista
+            if (activeTab === 'clients') {
+                 setActiveView('clients'); 
+            }
         };
 
 
@@ -393,7 +396,9 @@
             const monthlyProfits = monthKeys.map(key => monthlySales[key].profit);
 
             const ctxMonthly = document.getElementById('monthlyChart').getContext('2d');
-            new Chart(ctxMonthly, {
+            // Destruye el gráfico anterior si existe para evitar errores de Chart.js
+            if (window.monthlyChartInstance) window.monthlyChartInstance.destroy();
+            window.monthlyChartInstance = new Chart(ctxMonthly, {
                 type: 'bar',
                 data: {
                     labels: monthKeys,
@@ -427,7 +432,8 @@
             const productRevenues = sortedProducts.map(([, data]) => data.totalRevenue);
             
             const ctxProduct = document.getElementById('productChart').getContext('2d');
-            new Chart(ctxProduct, {
+            if (window.productChartInstance) window.productChartInstance.destroy();
+            window.productChartInstance = new Chart(ctxProduct, {
                 type: 'pie',
                 data: {
                     labels: productLabels,
@@ -445,7 +451,8 @@
 
              // --- 3. Ganancia Total Acumulada ---
             const ctxTotalProfit = document.getElementById('totalProfitChart').getContext('2d');
-            new Chart(ctxTotalProfit, {
+            if (window.totalProfitChartInstance) window.totalProfitChartInstance.destroy();
+            window.totalProfitChartInstance = new Chart(ctxTotalProfit, {
                 type: 'doughnut',
                 data: {
                     labels: ['Ganancia Neta', 'Costo de Venta'],
@@ -614,15 +621,9 @@
             }
         };
         
-        // **********************************************
-        // NOTA: FALTA LA IMPLEMENTACIÓN COMPLETA DE setActiveView, 
-        // renderProducts, renderSales, renderClients, renderDrive, renderSettings.
-        // Se asume que existen en tu proyecto.
-        // **********************************************
         
         const updateProductsList = () => {
             const listEl = document.getElementById('products-list-table');
-            // ... (Tu lógica para renderizar la tabla de productos) ...
             if (!listEl) return;
             
             if (products.length === 0) {
@@ -643,15 +644,6 @@
             `).join('');
         };
         
-        // Función placeholder, asume que renderizas ventas/historial
-        const renderSales = () => {
-            if (activeTab === 'sales') {
-                // ... lógica de renderizado para la vista de Venta ...
-            } else if (activeTab === 'clients') {
-                // ... lógica de renderizado para la vista de Historial ...
-            }
-        };
-
         window.setActiveView = (viewName) => {
             activeTab = viewName;
             
@@ -807,7 +799,7 @@
                             <div class="bg-gray-50 p-6 rounded-lg shadow-inner">
                                 <h3 class="text-xl font-semibold mb-4">Opciones de Aplicación Híbrida (PWA)</h3>
                                 <p class="text-gray-700">Esta aplicación está diseñada para funcionar sin conexión.</p>
-                                <p class="mt-2 text-sm text-gray-500">Si deseas instalarla en tu dispositivo, busca el ícono de instalación en la barra de direcciones del navegador.</p>
+                                <p class="mt-2 text-sm text-gray-500">Usa el botón de abajo para instalarla en tu dispositivo como una aplicación independiente.</p>
                                 <button onclick="window.showInstallPrompt()" id="install-button" class="mt-4 bg-teal-500 text-white p-2 rounded hover:bg-teal-600 transition hidden">
                                     Instalar App (PWA)
                                 </button>
@@ -858,6 +850,42 @@
         // **********************************************
         // ******* LÓGICA DEL SERVICE WORKER (PWA) *******
         // **********************************************
+
+        let deferredPrompt; 
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Previene que el navegador muestre la ventana por defecto
+            e.preventDefault(); 
+            // Guarda el evento para que se pueda disparar más tarde
+            deferredPrompt = e; 
+            // Muestra el botón de instalación en la configuración
+            const installButton = document.getElementById('install-button');
+            if (installButton) {
+                installButton.classList.remove('hidden');
+            }
+            console.log("PWA Install Prompt guardado.");
+        });
+
+        window.showInstallPrompt = () => {
+            if (deferredPrompt) {
+                // Muestra la ventana de instalación
+                deferredPrompt.prompt();
+                // Espera la respuesta del usuario
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        showMessage('La aplicación se está instalando...');
+                    } else {
+                        showMessage('Instalación cancelada.', true);
+                    }
+                    // Limpia la variable después de usarla
+                    deferredPrompt = null;
+                    document.getElementById('install-button').classList.add('hidden');
+                });
+            } else {
+                 showMessage('La aplicación ya está instalada o la opción no está disponible.', true);
+            }
+        };
+
         window.addEventListener('load', () => {
             if ('serviceWorker' in navigator) {
                 // Registra el Service Worker ubicado en la raíz
